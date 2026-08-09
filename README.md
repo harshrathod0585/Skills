@@ -34,6 +34,7 @@ auto-gear fixes both directions:
 - [How enforcement works](#how-enforcement-works)
 - [Configuration](#configuration)
 - [What is and isn't capped](#what-is-and-isnt-capped)
+- [Routing the main loop (proxy)](#routing-the-main-loop-proxy)
 - [Benchmarks](#benchmarks)
 - [Testing it yourself](#testing-it-yourself)
 - [Architecture](#architecture)
@@ -204,8 +205,10 @@ that specify no model at all.
 
 **Not capped:**
 
-- **The main session model.** Use `/model` for that — auto-gear governs what your
-  session *delegates*, not what it runs on.
+- **The main session model.** Use `/model` for that, or the proxy below —
+  auto-gear's hook governs what your session *delegates*, not what it runs on.
+  Fork subagents are also uncappable (they ignore model overrides by design), so
+  the hook asks for confirmation instead of pretending to clamp them.
 - **Anything outside this Claude Code session** — a `claude -p` you launch from a
   Bash tool call runs in its own process with its own hooks.
 - **API spend generally.** This is a model-tier policy, not a billing limit.
@@ -213,6 +216,44 @@ that specify no model at all.
 **An invalid policy file is ignored entirely** — which means *uncapped*, not
 partially capped. `/auto-gear-status` distinguishes "no policy", "invalid policy",
 and "active", and names the specific problem in the invalid case.
+
+## Routing the main loop (proxy)
+
+A `PreToolUse` hook can only rewrite tool inputs, and the session model is fixed
+before any hook exists. So a one-line question runs on whatever tier the session
+started with, no matter what the cap says. `proxy.js` closes that gap by sitting
+in front of the API instead of inside Claude Code:
+
+```sh
+node proxy.js                                    # terminal 1, leave running
+ANTHROPIC_BASE_URL=http://127.0.0.1:8787 claude  # terminal 2, new session
+```
+
+Every request — main loop included — is a POST to `/v1/messages` with `model` as
+an ordinary JSON field. The proxy parses the body, applies the same `policy.js`
+cap the hook uses, rewrites `model`, and forwards upstream. Responses are piped,
+so streaming is unaffected. Each decision is logged:
+
+```
+auto-gear  claude-haiku-4-5  (routed opus -> haiku)
+```
+
+It only downgrades plainly chat-shaped turns: no tool results, no images, under
+400 characters, within the first four messages. Anything carrying real work keeps
+the tier the client asked for, and the cap still applies either way.
+
+Two things to weigh before leaving it on:
+
+- **Prompt caches are per-model.** Switching tiers mid-session means the next
+  turn on the higher tier pays a cold cache write. On a long session that can
+  cost more than the routing saves.
+- **The cheap tier receives everything.** Claude Code sends its full system
+  prompt and tool definitions with every turn, so a downgraded turn hands all of
+  that to the cheapest model. Verify the answers hold up on your workload.
+
+`AUTO_GEAR_PORT`, `AUTO_GEAR_MODELS` (JSON tier→model-id overrides), and
+`AUTO_GEAR_QUIET` configure it. The tier→id map is the one part that drifts on a
+model release; override it rather than editing the file.
 
 ## Benchmarks
 
