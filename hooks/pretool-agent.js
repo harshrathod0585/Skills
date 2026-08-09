@@ -25,6 +25,23 @@ function finish() {
   if (!policy) process.exit(0);
 
   const toolInput = payload.tool_input || {};
+
+  // Forks always run on the parent's model; a `model` override is ignored, so
+  // updatedInput here would be a lie. Can't clamp it => ask instead of
+  // reporting a cap that never applied.
+  if (String(toolInput.subagent_type || '').trim().toLowerCase() === 'fork') {
+    console.log(JSON.stringify({
+      hookSpecificOutput: {
+        hookEventName: 'PreToolUse',
+        permissionDecision: policy.enforce === 'off' ? 'allow' : 'ask',
+        permissionDecisionReason:
+          'auto-gear: fork subagents ignore model overrides and run on the session model, ' +
+          `above the cap "${policy.max_model}". Cannot be clamped.`,
+      },
+    }));
+    process.exit(0);
+  }
+
   const result = clamp(policy, toolInput.model, toolInput.effort);
   if (!result.changed) process.exit(0);
 

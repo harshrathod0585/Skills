@@ -59,6 +59,16 @@ test('enforce=warn asks instead of rewriting', () => {
   assert.equal(h.updatedInput, undefined);
 });
 
+test('fork dispatch asks rather than faking a clamp it cannot apply', () => {
+  const h = run('pretool-agent.js', {
+    tool_name: 'Agent',
+    tool_input: { prompt: 'do a thing', subagent_type: 'fork', model: 'haiku' },
+  }).hookSpecificOutput;
+  assert.equal(h.permissionDecision, 'ask');
+  assert.equal(h.updatedInput, undefined); // a rewrite here would be silently dropped
+  assert.match(h.permissionDecisionReason, /fork/i);
+});
+
 test('session-start injects the active cap into context', () => {
   const h = run('session-start.js', {}).hookSpecificOutput;
   assert.equal(h.hookEventName, 'SessionStart');
