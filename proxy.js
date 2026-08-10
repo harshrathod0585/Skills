@@ -293,15 +293,25 @@ const server = http.createServer((req, res) => {
     const headers = { ...req.headers, host: UPSTREAM };
     delete headers['content-length'];
     if (body.length) headers['content-length'] = String(body.length);
+    // The header-injection transform below does string/regex surgery on the response
+    // bytes, which corrupts a gzip/br-compressed body -- the client's own decompressor
+    // then fails (ZlibError). Force an uncompressed upstream response so the transform's
+    // "this is plain UTF-8 text" assumption is actually true, not just usually true.
+    headers['accept-encoding'] = 'identity';
 
     const upstream = https.request(
       { hostname: UPSTREAM, port: 443, path: req.url, method: req.method, headers },
       up => {
-        res.writeHead(up.statusCode, up.headers);
+        const responseHeaders = { ...up.headers };
         if (decision && up.statusCode === 200) {
+          // Body length changes once the [routed:...] tag is spliced in -- forwarding
+          // upstream's original content-length would truncate or mismatch the payload.
+          delete responseHeaders['content-length'];
+          res.writeHead(up.statusCode, responseHeaders);
           const transformStream = createResponseHeaderTransform(decision.tier, decision.effort);
           up.pipe(transformStream).pipe(res);
         } else {
+          res.writeHead(up.statusCode, responseHeaders);
           up.pipe(res);
         }
       }
