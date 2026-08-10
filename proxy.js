@@ -12,7 +12,7 @@
 
 const http = require('node:http');
 const https = require('node:https');
-const { loadPolicy, clamp } = require('./hooks/policy');
+const { loadPolicy, clamp, record } = require('./hooks/policy');
 
 const PORT = Number(process.env.AUTO_GEAR_PORT) || 8787;
 const UPSTREAM = 'api.anthropic.com';
@@ -98,6 +98,8 @@ const server = http.createServer((req, res) => {
       try {
         const payload = JSON.parse(body.toString('utf8'));
         const policy = loadPolicy();
+        const asked = payload.model;
+        const askedEffort = (payload.output_config && payload.output_config.effort) || null;
         const decision = policy && route(policy, payload);
         if (decision) {
           apply(payload, decision);
@@ -105,6 +107,15 @@ const server = http.createServer((req, res) => {
           if (!process.env.AUTO_GEAR_QUIET) {
             console.log(`auto-gear  ${decision.model}  (${decision.reason})`);
           }
+        }
+        if (policy) {
+          record({
+            surface: 'proxy',
+            from: asked || null,
+            model: decision ? decision.model : asked || null,
+            effort: decision ? (decision.effort === undefined ? null : decision.effort) : askedEffort,
+            changed: Boolean(decision),
+          });
         }
       } catch (e) {
         // Unparseable or non-JSON body: forward untouched. Never break a request.
