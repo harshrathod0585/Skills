@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# claude-gear — start Claude Code with main-loop routing already wired up.
+#
+# bash, not sh: the port check uses /dev/tcp, which dash (the /bin/sh on many
+# Linux distros) does not implement — there it would fail silently and start a
+# second proxy on every launch.
+#
+# A plugin install gets you the skills, commands, and hooks, but it cannot start
+# a background server or set an env var for a session that has not launched yet.
+# Those are the two steps this collapses: bring the proxy up if it isn't, then
+# exec claude pointed at it. Everything else is ordinary plugin behaviour.
+#
+#   claude-gear            # same arguments as `claude`
+#   AUTO_GEAR_PORT=9000 claude-gear
+#
+# Without this you can always do it by hand:
+#   node proxy.js & ANTHROPIC_BASE_URL=http://127.0.0.1:8787 claude
+
+set -e
+
+PORT="${AUTO_GEAR_PORT:-8787}"
+DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+LOG="${TMPDIR:-/tmp}/auto-gear-proxy.log"
+
+# Reuse a proxy that's already up rather than failing on EADDRINUSE. Anything
+# already listening on the port is assumed to be ours; if it isn't, the routing
+# simply won't happen and /auto-gear-usage will show an empty proxy section
+# rather than silently misreporting.
+if ! (exec 3<>/dev/tcp/127.0.0.1/"$PORT") 2>/dev/null; then
+  command -v node >/dev/null 2>&1 || {
+    echo "claude-gear: node not found — needed to run the routing proxy" >&2
+    exit 1
+  }
+  nohup node "$DIR/proxy.js" >"$LOG" 2>&1 &
+  # Give it a moment to bind; claude launching first would bypass it silently,
+  # which is the one failure mode that looks like success.
+  i=0
+  while [ "$i" -lt 20 ]; do
+    (exec 3<>/dev/tcp/127.0.0.1/"$PORT") 2>/dev/null && break
+    i=$((i + 1))
+    sleep 0.1
+  done
+  if [ "$i" -ge 20 ]; then
+    echo "claude-gear: proxy failed to start on port $PORT — see $LOG" >&2
+    echo "claude-gear: launching without routing" >&2
+    exec claude "$@"
+  fi
+  echo "claude-gear: proxy on 127.0.0.1:$PORT (log: $LOG)"
+fi
+
+exec env ANTHROPIC_BASE_URL="http://127.0.0.1:$PORT" claude "$@"
