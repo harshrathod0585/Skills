@@ -77,21 +77,20 @@ for (const surface of ['proxy', 'agent']) {
   const label = surface === 'proxy' ? 'main loop' : 'subagents';
   console.log(`\n  ${surface} (${label})  ${list.length}`);
 
-  // Forks carry no chosen model, so counting them here would invent a tier
-  // called "none" and quietly inflate whatever it sorted next to.
-  // Model and effort are one choice, not two — `opus(max)` and `opus(low)` are
-  // different spends, and splitting them into separate charts hides which
-  // combination you actually ran. One distribution over the pair.
-  const picked = list.filter(r => r.model);
-  if (picked.length) {
-    const pairs = picked.reduce((acc, r) => {
-      const k = `${tierLabel(r.model)}(${r.effort || 'none'})`;
-      acc[k] = (acc[k] || 0) + 1;
-      return acc;
-    }, {});
-    console.log(histogram(pairs, picked.length, '    '));
-  }
+  // One bar per call, keyed by the model+effort pair — they're a single choice,
+  // and `Opus(max)` vs `Opus(low)` are different spends. Forks have no tier of
+  // their own but still get a bar, so the bars always sum to the header count
+  // instead of silently falling short.
+  const pairs = list.reduce((acc, r) => {
+    const k = r.model ? `${tierLabel(r.model)}(${r.effort || 'none'})` : 'Fork(uncapped)';
+    acc[k] = (acc[k] || 0) + 1;
+    return acc;
+  }, {});
+  console.log(histogram(pairs, list.length, '    '));
 
+  // Denominator is every call, including forks. A fork that could not be capped
+  // is a dispatch routing failed to reroute — dropping it would quietly improve
+  // the ratio by excluding the cases that went wrong.
   const changed = list.filter(r => r.changed).length;
   const pct = Math.round((changed / list.length) * 100);
   console.log(`    rerouted  ${changed} of ${list.length} (${pct}%)`);
@@ -114,8 +113,6 @@ for (const surface of ['proxy', 'agent']) {
   const effortOnly = list.filter(r => r.changed && r.from && tierLabel(r.from) === tierLabel(r.model)).length;
   if (effortOnly) console.log(`    effort-only ${effortOnly} (same tier, reasoning trimmed)`);
 
-  const forks = list.filter(r => r.kind === 'fork').length;
-  if (forks) console.log(`    forks     ${forks} (uncappable — ran on the session model)`);
 }
 
 console.log(`\n  log       ${file}`);
