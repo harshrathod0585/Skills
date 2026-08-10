@@ -25,6 +25,22 @@ function policyPath() {
   return process.env.AUTO_GEAR_POLICY || path.join(configDir(), 'model-policy.json');
 }
 
+// Tier tokens we know how to name. Wider than any one policy's `order`, because
+// a display label is still wanted for a tier the user hasn't ranked — an
+// unranked model gets clamped, and "Fable" reads better than "claude-fable-5"
+// while that happens.
+const TIERS = ['haiku', 'sonnet', 'opus', 'fable', 'mythos'];
+
+// "claude-haiku-4-5" -> "Haiku", "opus" -> "Opus". Version suffixes are noise in
+// a status line, and they also split the same tier into separate buckets in the
+// usage report — the proxy sees full wire ids while the hook sees bare tiers.
+// Unrecognized names pass through untouched rather than being guessed at.
+function tierLabel(model) {
+  const id = String(model || '').toLowerCase();
+  const hit = TIERS.find(t => id.includes(t));
+  return hit ? hit[0].toUpperCase() + hit.slice(1) : String(model || '');
+}
+
 function usagePath() {
   return process.env.AUTO_GEAR_USAGE || path.join(configDir(), 'auto-gear-usage.jsonl');
 }
@@ -139,6 +155,6 @@ function summary(policy) {
 }
 
 module.exports = {
-  EFFORTS, FALLBACK_ORDER, configDir, policyPath, usagePath,
+  EFFORTS, FALLBACK_ORDER, TIERS, configDir, policyPath, usagePath, tierLabel,
   loadPolicy, normalize, clamp, summary, record,
 };

@@ -40,8 +40,8 @@ test('report counts model and effort per surface', () => {
   assert.match(out, /3 routed call\(s\)/);
   assert.match(out, /proxy \(main loop\)\s+2/);
   assert.match(out, /agent \(subagents\)\s+1/);
-  assert.match(out, /effort\s+.*medium/);
-  assert.match(out, /moves\s+.*claude-opus-5 -> claude-haiku-4-5/);
+  assert.match(out, /Opus\(medium\)/);
+  assert.match(out, /moves\s+.*Opus -> Haiku/);
 });
 
 test('rerouted counts unchanged calls in the denominator', () => {
@@ -64,7 +64,19 @@ test('forks are left out of the model tally, not counted as a tier', () => {
   record({ surface: 'agent', kind: 'fork', from: null, model: null, effort: null, changed: false }, log);
   record({ surface: 'agent', from: 'haiku', model: 'haiku', effort: null, changed: false }, log);
   const out = report(log);
-  assert.match(out, /model\s+haiku 1$/m); // not "haiku 1  none 1"
+  assert.match(out, /Haiku\(none\)\s+█+\s+1\s+100%/); // the only bar, and it owns 100%
+  assert.doesNotMatch(out, /^\s*None\(/mi);              // the fork is not its own tier
+});
+
+test('bars are scaled to the largest bucket, and a rare one stays visible', () => {
+  const log = path.join(dir, 'h.jsonl');
+  for (let i = 0; i < 40; i++) record({ surface: 'agent', from: 'haiku', model: 'haiku', effort: null, changed: false }, log);
+  record({ surface: 'agent', from: 'opus', model: 'opus', effort: 'medium', changed: false }, log);
+
+  const out = report(log);
+  const bar = k => (out.match(new RegExp(`^\\s*${k.replace(/[()]/g, '\\$&')}\\s+(█+)`, 'm')) || [])[1] || '';
+  assert.ok(bar('Haiku(none)').length > bar('Opus(medium)').length, 'the common tier should dominate');
+  assert.ok(bar('Opus(medium)').length >= 1, 'a 1-in-41 bucket must not round away to nothing');
 });
 
 test('forks are surfaced as uncappable', () => {
