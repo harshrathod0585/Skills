@@ -1,2 +1,4 @@
-description = "Set or change your subagent model cap and effort ceilings"
-prompt = "Use the auto-gear-set skill to configure the subagent model cap. {{args}}"
+description = "Interactively configure model ceiling and per-model effort caps"
+prompt = """
+Follow the `auto-gear-set` skill instructions to ask the user for their desired max model ceiling (e.g. sonnet) and effort caps, then save the policy to `~/.claude/model-policy.json`.
+"""

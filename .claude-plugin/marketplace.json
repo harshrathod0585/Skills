@@ -8,7 +8,7 @@
     {
       "name": "auto-gear",
       "source": "./",
-      "description": "Hard cap on which model your subagents may use, plus a routing rubric that sends each task to the cheapest tier that can do it."
+      "description": "Local HTTP proxy that routes every Claude Code request -- main loop and subagents -- to the cheapest model tier that can do it, with a hard ceiling you control."
     }
   ]
 }
