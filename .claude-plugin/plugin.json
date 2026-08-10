@@ -1,5 +1,11 @@
 {
   "name": "auto-gear",
-  "description": "Model routing proxy for Claude Code",
-  "version": "3.0.0"
+  "version": "2.0.0",
+  "description": "Hard cap on which model your subagents may use, plus a routing rubric that sends each task to the cheapest tier that can do it.",
+  "author": {
+    "name": "harshrathod0585",
+    "url": "https://github.com/harshrathod0585"
+  },
+  "homepage": "https://github.com/harshrathod0585/auto-gear",
+  "hooks": "./hooks/hooks.json"
 }

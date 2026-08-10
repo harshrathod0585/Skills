@@ -1,0 +1,22 @@
+[
+  { "task": "List every file under src/ whose name ends in .test.ts.", "tier": "cheapest", "why": "mechanical, one right answer" },
+  { "task": "Read config/defaults.yaml and tell me what the retry timeout is set to.", "tier": "cheapest", "why": "single lookup" },
+  { "task": "Rename the local variable `res` to `response` in src/api/client.ts.", "tier": "cheapest", "why": "mechanical, single file" },
+  { "task": "Reformat this JSON blob to be sorted by key.", "tier": "cheapest", "why": "deterministic transform" },
+  { "task": "Extract the version numbers from the output of `npm ls --json`.", "tier": "cheapest", "why": "structured extraction" },
+  { "task": "Grep for every call site of `parseDate` and list file:line.", "tier": "cheapest", "why": "search, verifiable by looking" },
+
+  { "task": "Add a --dry-run flag to the existing export CLI command; it should print what would be written instead of writing.", "tier": "mid", "why": "known shape, bounded" },
+  { "task": "Fix this bug: the pagination cursor repeats the last item on page 2. I have a failing test that reproduces it.", "tier": "mid", "why": "reproduced, test verifies" },
+  { "task": "Write unit tests for the existing `formatCurrency` helper.", "tier": "mid", "why": "existing code, clear criterion" },
+  { "task": "Review this 40-line diff to the settings form for obvious mistakes.", "tier": "mid", "why": "bounded review" },
+  { "task": "Port these three React class components to hooks; behavior must stay identical.", "tier": "mid", "why": "mechanical-ish but needs judgment, tests exist" },
+  { "task": "Find out how the retry middleware is wired up across the request pipeline and summarize it.", "tier": "mid", "why": "multi-file research, low stakes" },
+
+  { "task": "Our checkout intermittently double-charges. No reproduction, happens maybe 1 in 5000 orders.", "tier": "top", "why": "no repro, money, ambiguous" },
+  { "task": "Design how we should shard the events table; we're at 400M rows and growing.", "tier": "top", "why": "architecture, expensive to unwind" },
+  { "task": "Write the migration that backfills user emails into the new normalized table and run it against prod.", "tier": "top", "why": "irreversible data change" },
+  { "task": "Review our JWT refresh flow for auth bypass risks.", "tier": "top", "why": "security stakes" },
+  { "task": "Make the ingestion worker concurrent. It currently processes one file at a time.", "tier": "top", "why": "concurrency correctness" },
+  { "task": "Users say the app feels slow. Figure out why and fix it.", "tier": "top", "why": "underspecified, no success criterion" }
+]

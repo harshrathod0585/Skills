@@ -1,0 +1,2 @@
+description = "Show the active subagent model cap (read-only)"
+prompt = "Use the auto-gear-status skill to show the active model policy. Do not change anything."
