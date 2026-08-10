@@ -84,13 +84,23 @@ To see what it would do without dispatching anything:
 | `/auto-gear-set` | Set the cap, per-model effort ceilings, and enforcement mode. Rerun anytime to change your mind. |
 | `/auto-gear-status` | Show the active policy. Read-only — and it tells you *why* if the policy is being ignored. |
 | `/auto-gear <task>` | Which tier would this task route to, and why. Answers in three lines; dispatches nothing. |
-| `/auto-gear-usage` | What routing actually did: models and effort levels used, how often it rerouted, and what it moved off. Optional day window (`/auto-gear-usage 7`). |
+| `/auto-gear-usage` | Which models ran, and at what effort, as a bar chart. Optional day window (`/auto-gear-usage 7`). |
 | `/auto-gear-help` | Reference card: tiers, config, enforcement modes. |
 
-Usage stats come from `~/.claude/auto-gear-usage.jsonl`, one line per decision,
-written by the hook for subagent dispatches and by the proxy for main-loop
-turns. It counts calls, not tokens — the log records which model was chosen, not
-what it spent, so don't read dollar figures into it.
+Usage comes from `~/.claude/auto-gear-usage.jsonl`, one line per decision,
+written by the hook for subagent dispatches and by the proxy for main-loop turns:
+
+```
+auto-gear usage  5 call(s), since 2026-08-10
+
+  Haiku(none)     ████████████████████████████    2   40%
+  Opus(medium)    ██████████████                  1   20%
+  Fork(uncapped)  ██████████████                  1   20%
+  Opus(none)      ██████████████                  1   20%
+```
+
+It counts calls, not tokens — the log records which model was chosen, not what
+it spent, so don't read dollar figures into it.
 
 ## How routing works
 

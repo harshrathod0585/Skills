@@ -30,71 +30,58 @@ test('record never throws on an unwritable path', () => {
   assert.doesNotThrow(() => record({ surface: 'proxy' }, '/no/such/dir/x.jsonl'));
 });
 
-test('report counts model and effort per surface', () => {
+test('models are shown by tier name, with effort, regardless of surface', () => {
   const log = path.join(dir, 'b.jsonl');
-  record({ surface: 'proxy', from: 'claude-opus-5', model: 'claude-haiku-4-5', effort: null, changed: true }, log);
-  record({ surface: 'proxy', from: 'claude-opus-5', model: 'claude-opus-5', effort: 'medium', changed: false }, log);
-  record({ surface: 'agent', from: 'opus', model: 'haiku', effort: null, changed: true }, log);
+  // The proxy records full wire ids and the hook records bare tiers; both must
+  // land in the same bucket or one tier appears twice under two spellings.
+  record({ surface: 'proxy', model: 'claude-opus-5', effort: 'medium' }, log);
+  record({ surface: 'agent', model: 'opus', effort: 'medium' }, log);
 
   const out = report(log);
-  assert.match(out, /3 routed call\(s\)/);
-  assert.match(out, /proxy \(main loop\)\s+2/);
-  assert.match(out, /agent \(subagents\)\s+1/);
-  assert.match(out, /Opus\(medium\)/);
-  assert.match(out, /moves\s+.*Opus -> Haiku/);
+  assert.match(out, /2 call\(s\)/);
+  assert.match(out, /Opus\(medium\)\s+█+\s+2\s+100%/);
+  assert.doesNotMatch(out, /claude-opus-5/); // wire ids never reach the display
 });
 
-test('rerouted counts unchanged calls in the denominator', () => {
+test('bars sum to the total — a fork gets one instead of vanishing', () => {
   const log = path.join(dir, 'c.jsonl');
-  record({ surface: 'agent', from: 'opus', model: 'haiku', effort: null, changed: true }, log);
-  record({ surface: 'agent', from: 'haiku', model: 'haiku', effort: null, changed: false }, log);
-  assert.match(report(log), /rerouted\s+1 of 2 \(50%\)/);
-});
+  record({ surface: 'agent', kind: 'fork', model: null, effort: null }, log);
+  record({ surface: 'agent', model: 'haiku', effort: null }, log);
 
-test('an effort-only clamp is not reported as a tier move', () => {
-  const log = path.join(dir, 'f.jsonl');
-  record({ surface: 'agent', from: 'opus', model: 'opus', effort: 'medium', changed: true }, log);
-  const out = report(log);
-  assert.doesNotMatch(out, /opus -> opus/);
-  assert.match(out, /effort-only 1/);
-});
-
-test('a fork gets its own bar rather than vanishing from the chart', () => {
-  const log = path.join(dir, 'g.jsonl');
-  record({ surface: 'agent', kind: 'fork', from: null, model: null, effort: null, changed: false }, log);
-  record({ surface: 'agent', from: 'haiku', model: 'haiku', effort: null, changed: false }, log);
   const out = report(log);
   assert.match(out, /Haiku\(none\)\s+█+\s+1\s+50%/);
   assert.match(out, /Fork\(uncapped\)\s+█+\s+1\s+50%/);
-  assert.doesNotMatch(out, /^\s*None\(/mi); // a fork is never labelled as a tier
 });
 
 test('bars are scaled to the largest bucket, and a rare one stays visible', () => {
-  const log = path.join(dir, 'h.jsonl');
-  for (let i = 0; i < 40; i++) record({ surface: 'agent', from: 'haiku', model: 'haiku', effort: null, changed: false }, log);
-  record({ surface: 'agent', from: 'opus', model: 'opus', effort: 'medium', changed: false }, log);
+  const log = path.join(dir, 'd.jsonl');
+  for (let i = 0; i < 40; i++) record({ surface: 'agent', model: 'haiku', effort: null }, log);
+  record({ surface: 'agent', model: 'opus', effort: 'medium' }, log);
 
   const out = report(log);
-  const bar = k => (out.match(new RegExp(`^\\s*${k.replace(/[()]/g, '\\$&')}\\s+(█+)`, 'm')) || [])[1] || '';
+  const bar = k => (out.match(new RegExp(`${k.replace(/[()]/g, '\\$&')}\\s+(█+)`)) || [])[1] || '';
   assert.ok(bar('Haiku(none)').length > bar('Opus(medium)').length, 'the common tier should dominate');
   assert.ok(bar('Opus(medium)').length >= 1, 'a 1-in-41 bucket must not round away to nothing');
 });
 
-test('forks are surfaced as uncappable', () => {
-  const log = path.join(dir, 'd.jsonl');
-  record({ surface: 'agent', kind: 'fork', from: null, model: null, effort: null, changed: false }, log);
-  assert.match(report(log), /Fork\(uncapped\)\s+█+\s+1\s+100%/);
+test('a day window filters older entries out', () => {
+  const log = path.join(dir, 'e.jsonl');
+  fs.writeFileSync(log, JSON.stringify({ ts: '2020-01-01T00:00:00.000Z', model: 'opus', effort: null }) + '\n');
+  record({ surface: 'agent', model: 'haiku', effort: null }, log);
+
+  assert.match(report(log), /2 call\(s\)/);
+  assert.match(report(log, '7'), /1 call\(s\)/);
 });
 
-test('a missing log explains itself instead of printing an empty table', () => {
+test('a missing log explains itself instead of printing an empty chart', () => {
   const out = report(path.join(dir, 'absent.jsonl'));
   assert.match(out, /NO DATA YET/);
-  assert.doesNotMatch(out, /routed call/);
+  assert.doesNotMatch(out, /call\(s\)/);
 });
 
 test('a torn final line does not lose the rest of the file', () => {
-  const log = path.join(dir, 'e.jsonl');
-  record({ surface: 'agent', from: 'opus', model: 'haiku', effort: null, changed: true }, log);
+  const log = path.join(dir, 'f.jsonl');
+  record({ surface: 'agent', model: 'haiku', effort: null }, log);
   fs.appendFileSync(log, '{"surface":"agent","mod');
-  assert.match(report(log), /1 routed call\(s\)/);
+  assert.match(report(log), /1 call\(s\)/);
 });
