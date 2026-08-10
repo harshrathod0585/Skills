@@ -25,6 +25,27 @@ function policyPath() {
   return process.env.AUTO_GEAR_POLICY || path.join(configDir(), 'model-policy.json');
 }
 
+function usagePath() {
+  return process.env.AUTO_GEAR_USAGE || path.join(configDir(), 'auto-gear-usage.jsonl');
+}
+
+// One line per routing decision, from both surfaces: the proxy (main loop) and
+// the PreToolUse hook (subagent dispatch). Neither knew what the other did, so
+// there was no way to answer "what am I actually spending on".
+//
+// Never throws. A stats file failing to append must not break a dispatch or an
+// API request — the log is an observation, not part of the decision.
+//
+// ponytail: append-only, never rotated. A line is ~120 bytes; add trimming if a
+// heavy user's file ever gets large enough to notice.
+function record(entry, file = usagePath()) {
+  try {
+    fs.appendFileSync(file, JSON.stringify({ ts: new Date().toISOString(), ...entry }) + '\n');
+  } catch (e) {
+    /* observation only */
+  }
+}
+
 // Never throws. Missing/corrupt/invalid policy => null, and callers no-op.
 // A broken config file must not break every Agent dispatch in the session.
 function loadPolicy(file = policyPath()) {
@@ -117,4 +138,7 @@ function summary(policy) {
   return `cap=${policy.max_model} | allowed=${below.join(' < ')} | effort ceilings ${efforts} | enforce=${policy.enforce}`;
 }
 
-module.exports = { EFFORTS, FALLBACK_ORDER, configDir, policyPath, loadPolicy, normalize, clamp, summary };
+module.exports = {
+  EFFORTS, FALLBACK_ORDER, configDir, policyPath, usagePath,
+  loadPolicy, normalize, clamp, summary, record,
+};

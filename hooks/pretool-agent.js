@@ -5,7 +5,7 @@
 // the tool input so a choice above the cap can't happen, whether the model
 // forgot the skill, was talked out of it, or never had it in context.
 
-const { loadPolicy, clamp } = require('./policy');
+const { loadPolicy, clamp, record } = require('./policy');
 
 let input = '';
 let done = false;
@@ -30,6 +30,7 @@ function finish() {
   // updatedInput here would be a lie. Can't clamp it => ask instead of
   // reporting a cap that never applied.
   if (String(toolInput.subagent_type || '').trim().toLowerCase() === 'fork') {
+    record({ surface: 'agent', kind: 'fork', from: toolInput.model || null, model: null, effort: null, changed: false });
     console.log(JSON.stringify({
       hookSpecificOutput: {
         hookEventName: 'PreToolUse',
@@ -43,6 +44,18 @@ function finish() {
   }
 
   const result = clamp(policy, toolInput.model, toolInput.effort);
+
+  // Recorded whether or not it changed — a dispatch that was already at the
+  // right tier is still spend, and stats that only count clamps would flatter
+  // the routing by hiding everything it left alone.
+  record({
+    surface: 'agent',
+    from: toolInput.model || null,
+    model: result.model,
+    effort: result.effort === undefined ? null : result.effort,
+    changed: result.changed,
+  });
+
   if (!result.changed) process.exit(0);
 
   if (policy.enforce === 'warn') {

@@ -1,0 +1,2 @@
+description = "Show which models and effort levels routing actually used (read-only)"
+prompt = "Use the auto-gear-usage skill to show routing usage stats. Pass $ARGUMENTS as the day window if it is a number. Do not change anything."
