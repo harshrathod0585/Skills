@@ -21,19 +21,19 @@ By default, every request in a Claude Code session runs on whatever model the se
 ### Claude Code (plugin marketplace)
 
 ```
-/plugin marketplace add <this-repo-url-or-owner/repo>
+/plugin marketplace add harshrathod0585/auto-gear
 ```
 ```
 /plugin install auto-gear@auto-gear
 ```
-(send these as two separate prompts)
+(send these as two separate prompts — the install has to see the marketplace already added)
 
-Restart Claude Code, or run `/plugin` to reload, so the `auto-gear` and `auto-gear-set` skills and their slash commands are picked up. Confirm it loaded with `/auto-gear-status`.
+Restart Claude Code, or run `/plugin` to reload, so the `auto-gear` and `auto-gear-set` skills and their slash commands are picked up. Confirm it loaded via `/plugin` (it should list `auto-gear` as installed).
 
 ### Manual (any host, or to run the proxy standalone)
 
 ```bash
-git clone <this-repo-url> ~/.claude/plugins/auto-gear
+git clone https://github.com/harshrathod0585/auto-gear ~/.claude/plugins/auto-gear
 ```
 
 then reload plugins the same way as above.
@@ -110,7 +110,6 @@ Run these inside Claude Code:
 | `/auto-gear status` | Shows live routing stats from the running proxy |
 | `/auto-gear stop` | Stops the background proxy |
 | `/auto-gear-set` | Interactively set the model ceiling and per-tier effort caps |
-| `/auto-gear-help` | Quick-reference card for all of the above |
 
 You can also hit the stats endpoint directly:
 
