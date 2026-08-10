@@ -1,10 +1,5 @@
 {
   "name": "auto-gear",
-  "version": "3.0.0",
-  "description": "Routes every query to the model and reasoning effort that fit it. No configuration.",
-  "author": {
-    "name": "harshrathod0585",
-    "url": "https://github.com/harshrathod0585"
-  },
-  "homepage": "https://github.com/harshrathod0585/auto-gear"
+  "description": "Model routing proxy for Claude Code",
+  "version": "3.0.0"
 }

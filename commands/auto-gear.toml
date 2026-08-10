@@ -1,2 +1,8 @@
-description = "Ask which model tier a task should route to (and why)"
-prompt = "Using the auto-gear skill, decide which model tier this task should be dispatched on and why: {{args}}. Read the policy at ~/.claude/model-policy.json first, classify the task (cheapest / mid / top), apply the tie-break rules, clamp to the cap, and answer in at most three lines: chosen model + effort, the tier reason, and whether the cap lowered it."
+description = "Unified model proxy management (/auto-gear start | status | set | stop)"
+prompt = """
+Follow the `auto-gear` skill instructions based on the user's subcommand:
+- `/auto-gear start` -> Check port 8787 and start node proxy.js in background.
+- `/auto-gear status` -> Query http://127.0.0.1:8787/stats and display live stats.
+- `/auto-gear set` -> Interactively configure max model ceiling and save to ~/.claude/model-policy.json.
+- `/auto-gear stop` -> Terminate proxy process on port 8787.
+"""
