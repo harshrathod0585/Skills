@@ -231,9 +231,53 @@ started with, no matter what the cap says. `proxy.js` closes that gap by sitting
 in front of the API instead of inside Claude Code:
 
 ```sh
+bin/claude-gear          # starts the proxy if needed, then launches claude through it
+```
+
+`claude-gear` takes the same arguments as `claude`. It exists because a plugin
+install cannot start a background server or set an environment variable for a
+session that hasn't launched yet — those are the only two steps it collapses.
+The manual equivalent:
+
+```sh
 node proxy.js                                    # terminal 1, leave running
 ANTHROPIC_BASE_URL=http://127.0.0.1:8787 claude  # terminal 2, new session
 ```
+
+Either way it must be a **new session** — the base URL is read at startup, so a
+running session can't be retrofitted.
+
+### Seeing the routed model
+
+`hooks/statusline.js` puts the last routing decision in the statusline:
+
+```json
+"statusLine": {
+  "type": "command",
+  "command": "node /path/to/auto-gear/hooks/statusline.js"
+}
+```
+
+```
+auto-gear Opus 5 · ▸ claude-haiku-4-5(none) · cap opus
+```
+
+Claude Code allows exactly one statusline, so set `AUTO_GEAR_STATUSLINE_WRAP` to
+whatever you already run and its output is rendered first with the auto-gear
+segment appended:
+
+```json
+"command": "AUTO_GEAR_STATUSLINE_WRAP='npx -y ccstatusline@latest' node /path/to/auto-gear/hooks/statusline.js"
+```
+
+A wrapped command that fails or times out degrades to the auto-gear segment
+rather than blanking the line. Note the wrapped command's cost is paid on every
+render — `npx` adds roughly a second because it re-resolves the package each
+time.
+
+The statusline is deliberately *beside* the answer rather than injected into it.
+A marker prepended to the reply text would become part of the transcript, get
+replayed on every later turn, and the model would start imitating it.
 
 Every request — main loop included — is a POST to `/v1/messages` with `model` as
 an ordinary JSON field. The proxy parses the body, applies the same `policy.js`
