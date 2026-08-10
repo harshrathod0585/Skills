@@ -240,8 +240,13 @@ started with, no matter what the cap says. `proxy.js` closes that gap by sitting
 in front of the API instead of inside Claude Code:
 
 ```sh
-bin/claude-gear          # starts the proxy if needed, then launches claude through it
+/auto-gear-proxy         # from inside Claude Code: starts it, prints the launch line
+bin/claude-gear          # or from a shell: starts it and launches claude in one step
 ```
+
+Both ship with the plugin — a plugin install clones the whole repo, so
+`proxy.js` and `bin/claude-gear` land in the plugin directory alongside the
+hooks. Nothing extra to download.
 
 `claude-gear` takes the same arguments as `claude`. It exists because a plugin
 install cannot start a background server or set an environment variable for a

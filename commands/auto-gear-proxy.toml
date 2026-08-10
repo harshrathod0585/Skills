@@ -1,0 +1,2 @@
+description = "Start the main-loop routing proxy and print the launch command"
+prompt = "Use the auto-gear-proxy skill to start the routing proxy. Do not claim routing is active — it only starts once the user launches a new session pointed at the proxy."
