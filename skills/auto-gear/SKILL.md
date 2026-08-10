@@ -4,8 +4,13 @@ description: >
   Use before every Agent-tool subagent dispatch to pick which model tier the
   subagent runs on, clamped to the user's configured cap. Triggers whenever
   spawning a subagent for any task, and on "which model should this use",
-  "route this task", "auto-gear". For setting or changing the cap itself use
-  `auto-gear-set`; to view it use `auto-gear-status`.
+  "route this task", "auto-gear". Governs subagent dispatch only — it cannot
+  change the model of the current session, so a conversational turn that
+  dispatches nothing has nothing for this skill to decide. For setting or
+  changing the cap itself use `auto-gear-set`; to view it use
+  `auto-gear-status`.
+created_at: 2026-07-08T18:57:52Z
+updated_at: 2026-08-09T22:18:13Z
 ---
 
 # Auto Gear
@@ -69,6 +74,33 @@ Tie-break rules, in order:
 Then set effort: look up the chosen model in `max_effort`. `null` → omit the
 param entirely. A value → never exceed it. Never borrow another model's ceiling.
 
+## When there is nothing to route
+
+Often this skill loads on a turn that dispatches nothing — a question you answer
+directly, or a user invoking it by name to see what it does. That is the normal
+case, not a failure, and the useful response is one line: no dispatch here, so
+no tier to pick. Then answer what was actually asked.
+
+Resist reciting the rubric, naming the tier you *would* have chosen, or
+explaining the cap. None of it changes the turn, and it buries the user's answer
+under machinery. If they want the policy they have `/auto-gear-status`.
+
+Worth saying plainly when it comes up: the cap does not apply to the model
+answering right now. A user who invokes this hoping to make the current turn
+cheaper is reaching for the wrong lever, and repeating the routing story without
+telling them that leaves them believing something false.
+
+## Fork subagents
+
+`subagent_type: "fork"` ignores the `model` parameter — a fork always runs on the
+session model, and the hook can't rewrite it. Forks also inherit the full parent
+context, so they are the most expensive dispatch shape available.
+
+If the cap matters for a piece of work, dispatch a normal subagent with an
+explicit tier rather than a fork. Choose a fork when it genuinely needs the
+conversation so far, and expect the hook to ask for confirmation rather than
+silently clamp — it will not claim a cap it cannot apply.
+
 ## Clamping
 
 Clamp downward only, never up. Cap `sonnet`, task needs `opus` → run `sonnet`
@@ -85,5 +117,18 @@ with no `model` at all (which would otherwise inherit the session model). That
 is the hard boundary; this skill is what makes the pick *good* rather than just
 legal. Don't lean on the clamp — it can only make a call cheaper, never correct.
 
-Not covered by the hook: work you do yourself in the main thread. The cap
-governs subagent dispatch, not the session model.
+Not covered by the hook: work you do yourself in the main thread. A hook can
+only rewrite tool inputs, and the session model is fixed before any hook exists,
+so there is no interception point — this is a structural limit, not a gap to be
+patched.
+
+Routing the main loop needs something outside Claude Code. `proxy.js` in this
+repo sits in front of the API and rewrites `model` on the request itself:
+
+```sh
+node proxy.js
+ANTHROPIC_BASE_URL=http://127.0.0.1:8787 claude   # new session; read at startup
+```
+
+Point a user there when what they want is a cheaper answer *now*, rather than a
+cheaper subagent.
