@@ -76,6 +76,21 @@ test('session-start injects the active cap into context', () => {
   assert.match(h.additionalContext, /cap=sonnet/);
 });
 
+test('session-start does not start a proxy for a session that never asked', () => {
+  // The spawn path is gated on ANTHROPIC_BASE_URL naming our port. Without it,
+  // a plugin install must not leave a background server running on someone's
+  // machine — that is a side effect nobody consented to.
+  const port = 8899;
+  const before = execFileSync('bash', ['-c', `lsof -tiTCP:${port} -sTCP:LISTEN || true`], { encoding: 'utf8' }).trim();
+  assert.equal(before, '', 'test port must be free');
+
+  run('session-start.js', {}); // no ANTHROPIC_BASE_URL in env
+  execFileSync('bash', ['-c', 'sleep 0.5']);
+
+  const after = execFileSync('bash', ['-c', `lsof -tiTCP:${port} -sTCP:LISTEN || true`], { encoding: 'utf8' }).trim();
+  assert.equal(after, '', 'nothing should be listening');
+});
+
 test('session-start says so loudly when no policy exists', () => {
   const h = run('session-start.js', {}, path.join(dir, 'absent.json')).hookSpecificOutput;
   assert.match(h.additionalContext, /no policy/i);
