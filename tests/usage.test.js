@@ -59,13 +59,14 @@ test('an effort-only clamp is not reported as a tier move', () => {
   assert.match(out, /effort-only 1/);
 });
 
-test('forks are left out of the model tally, not counted as a tier', () => {
+test('a fork gets its own bar rather than vanishing from the chart', () => {
   const log = path.join(dir, 'g.jsonl');
   record({ surface: 'agent', kind: 'fork', from: null, model: null, effort: null, changed: false }, log);
   record({ surface: 'agent', from: 'haiku', model: 'haiku', effort: null, changed: false }, log);
   const out = report(log);
-  assert.match(out, /Haiku\(none\)\s+█+\s+1\s+100%/); // the only bar, and it owns 100%
-  assert.doesNotMatch(out, /^\s*None\(/mi);              // the fork is not its own tier
+  assert.match(out, /Haiku\(none\)\s+█+\s+1\s+50%/);
+  assert.match(out, /Fork\(uncapped\)\s+█+\s+1\s+50%/);
+  assert.doesNotMatch(out, /^\s*None\(/mi); // a fork is never labelled as a tier
 });
 
 test('bars are scaled to the largest bucket, and a rare one stays visible', () => {
@@ -82,7 +83,7 @@ test('bars are scaled to the largest bucket, and a rare one stays visible', () =
 test('forks are surfaced as uncappable', () => {
   const log = path.join(dir, 'd.jsonl');
   record({ surface: 'agent', kind: 'fork', from: null, model: null, effort: null, changed: false }, log);
-  assert.match(report(log), /forks\s+1 \(uncappable/);
+  assert.match(report(log), /Fork\(uncapped\)\s+█+\s+1\s+100%/);
 });
 
 test('a missing log explains itself instead of printing an empty table', () => {
