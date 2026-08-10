@@ -38,19 +38,24 @@ test('models are shown by tier name, with effort, regardless of surface', () => 
   record({ surface: 'agent', model: 'opus', effort: 'medium' }, log);
 
   const out = report(log);
-  assert.match(out, /2 call\(s\)/);
   assert.match(out, /Opus\(medium\)\s+█+\s+2\s+100%/);
   assert.doesNotMatch(out, /claude-opus-5/); // wire ids never reach the display
 });
 
-test('bars sum to the total — a fork gets one instead of vanishing', () => {
+test('forks are left out — they have no tier to report', () => {
   const log = path.join(dir, 'c.jsonl');
   record({ surface: 'agent', kind: 'fork', model: null, effort: null }, log);
   record({ surface: 'agent', model: 'haiku', effort: null }, log);
 
   const out = report(log);
-  assert.match(out, /Haiku\(none\)\s+█+\s+1\s+50%/);
-  assert.match(out, /Fork\(uncapped\)\s+█+\s+1\s+50%/);
+  assert.match(out, /Haiku\(none\)\s+█+\s+1\s+100%/); // % is of routed calls, not all
+  assert.doesNotMatch(out, /Fork/);
+});
+
+test('a log of nothing but forks says so instead of drawing an empty chart', () => {
+  const log = path.join(dir, 'g.jsonl');
+  record({ surface: 'agent', kind: 'fork', model: null, effort: null }, log);
+  assert.match(report(log), /nothing routed/);
 });
 
 test('bars are scaled to the largest bucket, and a rare one stays visible', () => {
@@ -69,19 +74,19 @@ test('a day window filters older entries out', () => {
   fs.writeFileSync(log, JSON.stringify({ ts: '2020-01-01T00:00:00.000Z', model: 'opus', effort: null }) + '\n');
   record({ surface: 'agent', model: 'haiku', effort: null }, log);
 
-  assert.match(report(log), /2 call\(s\)/);
-  assert.match(report(log, '7'), /1 call\(s\)/);
+  assert.match(report(log), /Opus\(none\)/);        // the 2020 entry is in range
+  assert.doesNotMatch(report(log, '7'), /Opus/);   // and out of it with a window
 });
 
 test('a missing log explains itself instead of printing an empty chart', () => {
   const out = report(path.join(dir, 'absent.jsonl'));
   assert.match(out, /NO DATA YET/);
-  assert.doesNotMatch(out, /call\(s\)/);
+  assert.doesNotMatch(out, /█/);
 });
 
 test('a torn final line does not lose the rest of the file', () => {
   const log = path.join(dir, 'f.jsonl');
   record({ surface: 'agent', model: 'haiku', effort: null }, log);
   fs.appendFileSync(log, '{"surface":"agent","mod');
-  assert.match(report(log), /1 call\(s\)/);
+  assert.match(report(log), /Haiku\(none\)\s+█+\s+1/);
 });

@@ -27,9 +27,10 @@ makes it longer.
 Each bar is one model+effort pair, counted in calls. `Opus(max)` and `Opus(low)`
 are separate bars because they are separate spends.
 
-`Fork(uncapped)` counts fork subagents. They ignore the model parameter and run
-on the session model, so the cap cannot touch them. A large share here means the
-cap is doing less than the rest of the chart suggests, and that is worth saying.
+Fork subagents are excluded — they ignore the model parameter and run on the
+session model, so there is no routed model to report. That means the chart does
+not account for every dispatch, and a fork-heavy session is spending more than
+it shows.
 
 Counts are calls, never tokens or cost — the log records which model was chosen,
 not what it spent. Don't convert these into dollar figures; point anyone asking

@@ -91,12 +91,11 @@ Usage comes from `~/.claude/auto-gear-usage.jsonl`, one line per decision,
 written by the hook for subagent dispatches and by the proxy for main-loop turns:
 
 ```
-auto-gear usage  5 call(s), since 2026-08-10
+auto-gear usage  since 2026-08-10
 
-  Haiku(none)     ████████████████████████████    2   40%
-  Opus(medium)    ██████████████                  1   20%
-  Fork(uncapped)  ██████████████                  1   20%
-  Opus(none)      ██████████████                  1   20%
+  Haiku(none)   ████████████████████████████    2   50%
+  Opus(medium)  ██████████████                  1   25%
+  Opus(none)    ██████████████                  1   25%
 ```
 
 It counts calls, not tokens — the log records which model was chosen, not what

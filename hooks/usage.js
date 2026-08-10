@@ -37,10 +37,17 @@ if (!rows.length) {
   process.exit(0);
 }
 
-// One bar per call. Forks have no tier of their own but still get one, so the
-// bars always sum to the total instead of silently falling short.
-const counts = rows.reduce((acc, r) => {
-  const k = r.model ? `${tierLabel(r.model)}(${r.effort || 'none'})` : 'Fork(uncapped)';
+// Only calls that landed on a model. Forks have no tier — they ignore the model
+// parameter and run on the session model — so they have nothing to report here.
+const routed = rows.filter(r => r.model);
+
+if (!routed.length) {
+  console.log(`auto-gear usage  nothing routed${days ? ` in the last ${days} day(s)` : ''}\n  log  ${file}`);
+  process.exit(0);
+}
+
+const counts = routed.reduce((acc, r) => {
+  const k = `${tierLabel(r.model)}(${r.effort || 'none'})`;
   acc[k] = (acc[k] || 0) + 1;
   return acc;
 }, {});
@@ -51,13 +58,13 @@ const max = Math.max(...bars.map(b => b[1]));
 const pad = Math.max(...bars.map(b => b[0].length));
 
 const window = days ? `last ${days} day(s)` : `since ${rows[0].ts.slice(0, 10)}`;
-console.log(`auto-gear usage  ${rows.length} call(s), ${window}\n`);
+console.log(`auto-gear usage  ${window}\n`);
 
 for (const [k, n] of bars) {
   // Never round a non-zero bucket down to nothing; an invisible bar reads as
   // "this never happened", which is a different claim than "this is rare".
   const w = Math.max(1, Math.round((n / max) * WIDTH));
-  const pct = String(Math.round((n / rows.length) * 100)).padStart(3);
+  const pct = String(Math.round((n / routed.length) * 100)).padStart(3);
   console.log(`  ${k.padEnd(pad)}  ${'█'.repeat(w).padEnd(WIDTH)} ${String(n).padStart(4)}  ${pct}%`);
 }
 
