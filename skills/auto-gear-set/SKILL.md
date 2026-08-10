@@ -11,6 +11,8 @@ This skill only edits policy — the ceiling and effort caps the `auto-gear` pro
 
 The proxy re-reads `~/.claude/model-policy.json` on every request, so there's no restart step — writing the file is the whole job.
 
+Whenever this skill triggers — `/auto-gear-set`, or the user asking to change a cap — it's because the user wants to *set something right now*, not because something needs checking. Always run the interview below and end by writing the file. Don't inspect the current policy, proxy state, or plugin install and report "looks complete, nothing to do" — that's a different skill's job (`auto-gear`) and answers a question nobody asked here. If a policy file already exists, show its current values as the starting point for the questions below rather than treating "a policy exists" as a reason to stop.
+
 ## What to ask
 
 1. **Model ceiling (`max_model`)** — the highest tier the proxy is allowed to route to, regardless of what the classifier picks. Anything the classifier scores above this gets clamped down.

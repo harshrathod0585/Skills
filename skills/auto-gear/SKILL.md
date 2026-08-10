@@ -22,10 +22,17 @@ If the user hasn't set a policy, it's worth mentioning once that they're running
    ```bash
    nohup node "${CLAUDE_PLUGIN_ROOT}/proxy.js" > /tmp/auto-gear-proxy.log 2>&1 &
    ```
-3. Tell the user it's running and that they still need to point Claude Code at it — the proxy being up doesn't do anything until this is set:
+3. The proxy running does nothing by itself — `ANTHROPIC_BASE_URL` has to point at it, and that variable is read once when a process starts, so **this current conversation can never be routed no matter what you export now**. Don't let the user find that out by asking a follow-up later; say it plainly up front:
+
+   > The proxy's running, but *this* conversation is still talking to the real API directly — the routing var gets read when a session starts, so nothing retroactively applies here. It'll take effect starting with your next new terminal/session.
+
+4. Then close the loop instead of leaving it as a command to copy-paste: ask whether to add the export to their shell profile so every future session is routed automatically, and do it if they say yes:
    ```bash
-   export ANTHROPIC_BASE_URL=http://127.0.0.1:8787
+   grep -q ANTHROPIC_BASE_URL ~/.zshrc 2>/dev/null || echo 'export ANTHROPIC_BASE_URL=http://127.0.0.1:8787' >> ~/.zshrc
    ```
+   (swap `~/.zshrc` for the user's actual shell rc file — check `$SHELL` first, don't assume zsh). Mention that a new terminal (or `source ~/.zshrc`) is needed for it to take effect, and that unsetting it or stopping the proxy reverts to talking to the real API directly.
+
+   If they'd rather not touch their shell profile, give the one-liner instead and stop there — this is a convenience offer, not something to insist on.
 
 ## Check status
 
