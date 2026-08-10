@@ -8,7 +8,7 @@
 // Read-only. Takes an optional day window: `node usage.js 7`.
 
 const fs = require('fs');
-const { usagePath, tierLabel } = require('./policy');
+const { usagePath, tierLabel } = require('./router');
 
 const file = usagePath();
 const days = Number(process.argv[2]) > 0 ? Number(process.argv[2]) : null;

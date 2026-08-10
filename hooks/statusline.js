@@ -12,7 +12,7 @@
 
 const fs = require('fs');
 const { spawnSync } = require('child_process');
-const { loadPolicy, usagePath, tierLabel } = require('./policy');
+const { usagePath, tierLabel } = require('./router');
 
 // Claude Code allows exactly one statusLine, so composing is the only way to
 // keep an existing one. Set AUTO_GEAR_STATUSLINE_WRAP to that command and its
@@ -72,11 +72,12 @@ function render(session, prefix = '') {
   const now = session && session.model && (session.model.display_name || session.model.id);
   if (now && !prefix) parts.push(String(now));
 
+  // The routed tier for the most recent turn. This is the answer to "what am I
+  // actually talking to right now" — the session model above is only what the
+  // client thinks it started with, and routing may have sent this turn
+  // somewhere else entirely.
   const last = lastDecision();
-  if (last) parts.push(`▸ ${tierLabel(last.model)}(${last.effort || 'none'})`);
-
-  const policy = loadPolicy();
-  parts.push(policy ? `cap ${tierLabel(policy.max_model)}` : 'uncapped');
+  parts.push(last ? `▸ ${tierLabel(last.model)}(${last.effort || 'none'})` : '▸ not routed yet');
 
   const mine = `auto-gear ${parts.join(' · ')}`;
   return prefix ? `${prefix}  ·  ${mine}` : mine;

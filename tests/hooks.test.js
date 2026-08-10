@@ -1,5 +1,5 @@
 // End-to-end: feed the hooks the real stdin payload shape and assert the JSON
-// Claude Code would act on. The unit tests cover the clamp; these cover the
+// Claude Code would act on. The unit tests cover classification; these cover the
 // wiring, which is where a hook silently does nothing.
 const { test } = require('node:test');
 const assert = require('node:assert');
@@ -10,98 +10,63 @@ const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'auto-gear-hooks-'));
-const policyFile = path.join(dir, 'model-policy.json');
-fs.writeFileSync(policyFile, JSON.stringify({
-  version: 2,
-  max_model: 'sonnet',
-  order: ['haiku', 'sonnet', 'opus'],
-  max_effort: { haiku: null, sonnet: 'high' },
-  enforce: 'clamp',
-}));
 
-function run(script, stdin, policy = policyFile) {
+function run(script, stdin) {
   const out = execFileSync('node', [path.join(ROOT, 'hooks', script)], {
     input: JSON.stringify(stdin),
-    env: { ...process.env, AUTO_GEAR_POLICY: policy },
+    // Keep the usage log out of the real config dir — these runs record.
+    env: { ...process.env, AUTO_GEAR_USAGE: path.join(dir, 'usage.jsonl') },
     encoding: 'utf8',
   });
   return out.trim() ? JSON.parse(out) : null;
 }
 
-const call = (model, effort) => ({
-  tool_name: 'Agent',
-  tool_input: { prompt: 'do a thing', ...(model ? { model } : {}), ...(effort ? { effort } : {}) },
-});
+const call = (input) => ({ tool_name: 'Agent', tool_input: { prompt: 'do a thing', ...input } });
 
-test('over-cap Agent call is rewritten via updatedInput', () => {
-  const out = run('pretool-agent.js', call('opus', 'max'));
+test('a dispatch with no model is routed from the task prompt', () => {
+  const out = run('pretool-agent.js', call({}));
   const h = out.hookSpecificOutput;
   assert.equal(h.hookEventName, 'PreToolUse');
   assert.equal(h.permissionDecision, 'allow');
-  assert.equal(h.updatedInput.model, 'sonnet');
-  assert.equal(h.updatedInput.effort, 'high');
+  assert.equal(h.updatedInput.model, 'claude-haiku-4-5'); // short prompt
   assert.equal(h.updatedInput.prompt, 'do a thing', 'must preserve the rest of the input');
+  assert.ok(!('effort' in h.updatedInput), 'haiku takes no effort parameter');
 });
 
-test('within-cap Agent call is left completely alone', () => {
-  assert.equal(run('pretool-agent.js', call('haiku')), null);
+test('a long task prompt routes up to opus, with effort set', () => {
+  const out = run('pretool-agent.js', call({ prompt: 'x'.repeat(1600) }));
+  const h = out.hookSpecificOutput;
+  assert.equal(h.updatedInput.model, 'claude-opus-5');
+  assert.equal(h.updatedInput.effort, 'high');
 });
 
-test('missing policy file fails open rather than blocking dispatch', () => {
-  assert.equal(run('pretool-agent.js', call('opus'), path.join(dir, 'absent.json')), null);
+test('an explicit model is deliberate and is left completely alone', () => {
+  assert.equal(run('pretool-agent.js', call({ model: 'opus' })), null);
+  assert.equal(run('pretool-agent.js', call({ model: 'claude-fable-5' })), null);
 });
 
-test('enforce=warn asks instead of rewriting', () => {
-  const warn = path.join(dir, 'warn.json');
-  fs.writeFileSync(warn, JSON.stringify({ max_model: 'haiku', order: ['haiku', 'opus'], enforce: 'warn' }));
-  const h = run('pretool-agent.js', call('opus'), warn).hookSpecificOutput;
-  assert.equal(h.permissionDecision, 'ask');
-  assert.equal(h.updatedInput, undefined);
+test('forks produce no output — their model cannot be set, so nothing is claimed', () => {
+  assert.equal(run('pretool-agent.js', call({ subagent_type: 'fork' })), null);
 });
 
-test('fork dispatch asks rather than faking a clamp it cannot apply', () => {
-  const h = run('pretool-agent.js', {
-    tool_name: 'Agent',
-    tool_input: { prompt: 'do a thing', subagent_type: 'fork', model: 'haiku' },
-  }).hookSpecificOutput;
-  assert.equal(h.permissionDecision, 'ask');
-  assert.equal(h.updatedInput, undefined); // a rewrite here would be silently dropped
-  assert.match(h.permissionDecisionReason, /fork/i);
+test('unparseable payload fails open rather than blocking dispatch', () => {
+  const out = execFileSync('node', [path.join(ROOT, 'hooks', 'pretool-agent.js')], {
+    input: 'not json', encoding: 'utf8',
+  });
+  assert.equal(out.trim(), '');
 });
 
-test('session-start injects the active cap into context', () => {
-  const h = run('session-start.js', {}).hookSpecificOutput;
+test('session-start reports routing as active with no setup step', () => {
+  const out = run('session-start.js', {});
+  const h = out.hookSpecificOutput;
   assert.equal(h.hookEventName, 'SessionStart');
   assert.match(h.additionalContext, /AUTO-GEAR ACTIVE/);
-  assert.match(h.additionalContext, /cap=sonnet/);
+  assert.doesNotMatch(h.additionalContext, /auto-gear-set|cap/i, 'no setup step to advertise');
 });
 
-test('session-start does not start a proxy for a session that never asked', () => {
-  // The spawn path is gated on ANTHROPIC_BASE_URL naming our port. Without it,
-  // a plugin install must not leave a background server running on someone's
-  // machine — that is a side effect nobody consented to.
-  const port = 8899;
-  const before = execFileSync('bash', ['-c', `lsof -tiTCP:${port} -sTCP:LISTEN || true`], { encoding: 'utf8' }).trim();
-  assert.equal(before, '', 'test port must be free');
-
-  run('session-start.js', {}); // no ANTHROPIC_BASE_URL in env
-  execFileSync('bash', ['-c', 'sleep 0.5']);
-
-  const after = execFileSync('bash', ['-c', `lsof -tiTCP:${port} -sTCP:LISTEN || true`], { encoding: 'utf8' }).trim();
-  assert.equal(after, '', 'nothing should be listening');
-});
-
-test('session-start says so loudly when no policy exists', () => {
-  const h = run('session-start.js', {}, path.join(dir, 'absent.json')).hookSpecificOutput;
-  assert.match(h.additionalContext, /no policy/i);
-});
-
-test('status names the reason an invalid policy is being ignored', () => {
-  const broken = path.join(dir, 'broken.json');
-  fs.writeFileSync(broken, JSON.stringify({ max_model: 'opus', order: ['haiku', 'sonnet'] }));
-  const out = execFileSync('node', [path.join(ROOT, 'hooks', 'status.js')], {
-    env: { ...process.env, AUTO_GEAR_POLICY: broken }, encoding: 'utf8',
-  });
-  assert.match(out, /INVALID POLICY/);
-  assert.match(out, /not in order/);
+test('status prints the tier table and the proxy state', () => {
+  const out = execFileSync('node', [path.join(ROOT, 'hooks', 'status.js')], { encoding: 'utf8' });
+  assert.match(out, /haiku/);
+  assert.match(out, /opus/);
+  assert.match(out, /main loop/);
 });

@@ -10,7 +10,7 @@ const net = require('net');
 const path = require('path');
 const os = require('os');
 const { spawn } = require('child_process');
-const { loadPolicy, policyPath, summary } = require('./policy');
+const { summary } = require('./router');
 
 // If the session was launched pointing at our proxy but nothing is listening,
 // every request in it fails with ECONNREFUSED. Start the proxy rather than let
@@ -51,15 +51,12 @@ function ensureProxy(done) {
   sock.once('timeout', () => { sock.destroy(); finish(false); });
 }
 
-const policy = loadPolicy();
-const context = policy
-  ? `AUTO-GEAR ACTIVE — ${summary(policy)}\n\n` +
-    'Before every Agent tool call, pass an explicit `model`: the cheapest tier that can do the task, ' +
-    'never above the cap. A PreToolUse hook clamps anything above it, so an over-picked model is ' +
-    'silently downgraded — pick correctly rather than relying on the clamp. Use the `auto-gear` skill ' +
-    'for the tier rubric.'
-  : `AUTO-GEAR INSTALLED — no policy at ${policyPath()}. ` +
-    'Subagents run uncapped until the user runs `/auto-gear-set`. Mention this once if they dispatch a subagent.';
+const context =
+  `AUTO-GEAR ACTIVE — routing tiers ${summary()}\n\n` +
+  'Agent dispatches that specify no `model` are routed automatically from the task prompt, so ' +
+  'omitting it is the normal path and costs nothing. Pass an explicit `model` only when you have a ' +
+  'reason the task text does not convey — an explicit choice is treated as deliberate and is left ' +
+  'untouched. Use the `auto-gear` skill for the tier rubric.';
 
 ensureProxy(() => {
   try {
